@@ -8,6 +8,8 @@
 
 Пока режим включен, любое текстовое сообщение в этом чате уходит в очередь для робота OpenComputers.
 
+Также поддерживается обратный поток: сообщения из Minecraft-чата отправляются в Telegram через bridge API.
+
 ## Переменные окружения
 
 Скопируйте `.env.example` в `.env` и заполните:
@@ -16,6 +18,7 @@
 - `BRIDGE_TOKEN` — секретный токен для робота (любой длинный случайный)
 - `BRIDGE_HOST` — обычно `0.0.0.0`
 - `BRIDGE_PORT` — порт bridge API, по умолчанию `3000`
+- `BRIDGE_STATE_FILE` — файл состояния режима (по умолчанию `/app/data/bridge-state.json`)
 
 ## Запуск
 
@@ -39,3 +42,14 @@ docker compose up --build -d
 
 - Internet Card
 - компонент `chat_box` (Computronics)
+
+## Двунаправленный мост
+
+- Telegram -> Minecraft: робот опрашивает `/oc/pull-text`
+- Minecraft -> Telegram: робот отправляет в `/oc/push-text`
+
+После изменений перезапустите контейнер:
+
+```bash
+docker compose up --build -d
+```

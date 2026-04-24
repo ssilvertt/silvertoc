@@ -11,6 +11,7 @@ export const config = {
   bridgeToken: process.env.BRIDGE_TOKEN as string,
   bridgeHost: process.env.BRIDGE_HOST ?? "0.0.0.0",
   bridgePort: Number(process.env.BRIDGE_PORT ?? 3000),
+  bridgeStateFile: process.env.BRIDGE_STATE_FILE ?? "/app/data/bridge-state.json",
 };
 
 if (!Number.isInteger(config.bridgePort) || config.bridgePort < 1 || config.bridgePort > 65535) {

@@ -8,10 +8,11 @@ type BridgeServerOptions = {
   port: number;
   token: string;
   bridgeState: BridgeState;
+  sendToTelegram: (chatId: number, message: string) => Promise<void>;
 };
 
 export function startBridgeServer(options: BridgeServerOptions): http.Server {
-  const { host, port, token, bridgeState } = options;
+  const { host, port, token, bridgeState, sendToTelegram } = options;
 
   const server = http.createServer((req, res) => {
     const requestUrl = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
@@ -22,7 +23,11 @@ export function startBridgeServer(options: BridgeServerOptions): http.Server {
       return;
     }
 
-    if (requestUrl.pathname !== "/oc/pull" && requestUrl.pathname !== "/oc/pull-text") {
+    if (
+      requestUrl.pathname !== "/oc/pull"
+      && requestUrl.pathname !== "/oc/pull-text"
+      && requestUrl.pathname !== "/oc/push-text"
+    ) {
       res.writeHead(404, { "content-type": "application/json; charset=utf-8" });
       res.end(JSON.stringify({ ok: false, error: "Not found" }));
       return;
@@ -41,6 +46,32 @@ export function startBridgeServer(options: BridgeServerOptions): http.Server {
     if (!Number.isInteger(chatId)) {
       res.writeHead(400, { "content-type": "application/json; charset=utf-8" });
       res.end(JSON.stringify({ ok: false, error: "chatId must be integer" }));
+      return;
+    }
+
+    if (requestUrl.pathname === "/oc/push-text") {
+      const player = (requestUrl.searchParams.get("player") ?? "MC").trim();
+      const text = (requestUrl.searchParams.get("message") ?? "").trim();
+
+      if (text.length === 0) {
+        res.writeHead(400, { "content-type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ ok: false, error: "message is required" }));
+        return;
+      }
+
+      const safePlayer = player.slice(0, 32);
+      const safeText = text.slice(0, 3500);
+
+      void sendToTelegram(chatId, `🟢 [${safePlayer}] ${safeText}`)
+        .then(() => {
+          res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+          res.end(JSON.stringify({ ok: true }));
+        })
+        .catch((error: unknown) => {
+          res.writeHead(500, { "content-type": "application/json; charset=utf-8" });
+          res.end(JSON.stringify({ ok: false, error: String(error) }));
+        });
+
       return;
     }
 

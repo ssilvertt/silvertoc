@@ -2,6 +2,19 @@ import { Telegraf } from "telegraf";
 import type { Context } from "telegraf";
 import type { BridgeState } from "./bridgeState.js";
 
+export const telegramCommands = [
+  { command: "start", description: "Запуск бота" },
+  { command: "help", description: "Помощь" },
+  { command: "ping", description: "Проверка работы" },
+  { command: "oc_mode_on", description: "Включить режим OpenComputers" },
+  { command: "oc_mode_off", description: "Выключить режим OpenComputers" },
+  { command: "oc_mode_status", description: "Показать статус режима" },
+] as const;
+
+export async function registerBotCommands(bot: Telegraf<Context>): Promise<void> {
+  await bot.telegram.setMyCommands([...telegramCommands]);
+}
+
 export function createBot(token: string, bridgeState: BridgeState): Telegraf<Context> {
   const bot = new Telegraf<Context>(token);
 
@@ -13,12 +26,7 @@ export function createBot(token: string, bridgeState: BridgeState): Telegraf<Con
     void ctx.reply(
       [
         "Доступные команды:",
-        "/start — запуск бота",
-        "/help — помощь",
-        "/ping — проверка работы",
-        "/oc_mode_on — включить режим передачи сообщений в OpenComputers",
-        "/oc_mode_off — выключить режим передачи сообщений в OpenComputers",
-        "/oc_mode_status — статус режима и размер очереди",
+        ...telegramCommands.map((item) => `/${item.command} — ${item.description}`),
       ].join("\n"),
     );
   });
