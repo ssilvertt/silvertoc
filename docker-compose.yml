@@ -7,3 +7,5 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    ports:
+      - "${BRIDGE_PORT:-3000}:3000"

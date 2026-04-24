@@ -1,4 +1,4 @@
-const requiredEnv = ["TELEGRAM_BOT_TOKEN"] as const;
+const requiredEnv = ["TELEGRAM_BOT_TOKEN", "BRIDGE_TOKEN"] as const;
 
 for (const key of requiredEnv) {
   if (!process.env[key]) {
@@ -8,4 +8,11 @@ for (const key of requiredEnv) {
 
 export const config = {
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN as string,
+  bridgeToken: process.env.BRIDGE_TOKEN as string,
+  bridgeHost: process.env.BRIDGE_HOST ?? "0.0.0.0",
+  bridgePort: Number(process.env.BRIDGE_PORT ?? 3000),
 };
+
+if (!Number.isInteger(config.bridgePort) || config.bridgePort < 1 || config.bridgePort > 65535) {
+  throw new Error("BRIDGE_PORT должен быть целым числом от 1 до 65535");
+}
