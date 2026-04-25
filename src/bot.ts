@@ -15,20 +15,22 @@ export async function registerBotCommands(bot: Telegraf<Context>): Promise<void>
   await bot.telegram.setMyCommands([...telegramCommands]);
 }
 
+function getHelpText(): string {
+  return [
+    "Доступные команды:",
+    ...telegramCommands.map((item) => `/${item.command} — ${item.description}`),
+  ].join("\n");
+}
+
 export function createBot(token: string, bridgeState: BridgeState): Telegraf<Context> {
   const bot = new Telegraf<Context>(token);
 
   bot.start((ctx) => {
-    void ctx.reply("Привет! Я klipsik");
+    void ctx.reply(getHelpText());
   });
 
   bot.help((ctx) => {
-    void ctx.reply(
-      [
-        "Доступные команды:",
-        ...telegramCommands.map((item) => `/${item.command} — ${item.description}`),
-      ].join("\n"),
-    );
+    void ctx.reply(getHelpText());
   });
 
   bot.command("ping", (ctx) => {

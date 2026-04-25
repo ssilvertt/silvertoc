@@ -8,7 +8,11 @@ local internet = require("internet")
 
 local BRIDGE_BASE_URL = "http://silvert.software:3000"
 local BRIDGE_TOKEN = "e8c05934c1186dbe83405419362892ca2584d2634d37d796f54eaf91de03fa3a"
-local TELEGRAM_CHAT_ID = "7620202582"
+local TELEGRAM_CHAT_IDS = {
+  "7620202582",
+  "5544814671",
+  -- "222222222",
+}
 local POLL_INTERVAL_SEC = 1.0
 local BOT_NAME = "TG-Bridge"
 local FORWARD_MC_CHAT_TO_TG = true
@@ -118,21 +122,37 @@ local function sendToMinecraftChat(text)
   return false, "Не найден подходящий метод отправки: " .. tostring(lastErr)
 end
 
-local function buildPullUrl()
+local function getChatIdList()
+  local list = {}
+
+  if type(TELEGRAM_CHAT_IDS) == "table" then
+    for _, chatId in ipairs(TELEGRAM_CHAT_IDS) do
+      if chatId ~= nil and tostring(chatId) ~= "" then
+        table.insert(list, tostring(chatId))
+      end
+    end
+  elseif TELEGRAM_CHAT_ID ~= nil and tostring(TELEGRAM_CHAT_ID) ~= "" then
+    table.insert(list, tostring(TELEGRAM_CHAT_ID))
+  end
+
+  return list
+end
+
+local function buildPullUrl(chatId)
   return string.format(
     "%s/oc/pull-text?token=%s&chatId=%s",
     BRIDGE_BASE_URL,
     urlEncode(BRIDGE_TOKEN),
-    urlEncode(TELEGRAM_CHAT_ID)
+    urlEncode(chatId)
   )
 end
 
-local function buildPushUrl(player, message)
+local function buildPushUrl(chatId, player, message)
   return string.format(
     "%s/oc/push-text?token=%s&chatId=%s&player=%s&message=%s",
     BRIDGE_BASE_URL,
     urlEncode(BRIDGE_TOKEN),
-    urlEncode(TELEGRAM_CHAT_ID),
+    urlEncode(chatId),
     urlEncode(player),
     urlEncode(message)
   )
@@ -151,9 +171,21 @@ local function forwardMinecraftMessageToTelegram(player, message)
     return true, nil
   end
 
-  local _, err = httpGet(buildPushUrl(player, message))
-  if err then
-    return false, err
+  local chatIds = getChatIdList()
+  if #chatIds == 0 then
+    return false, "Список TELEGRAM_CHAT_IDS пуст"
+  end
+
+  local lastErr = nil
+  for _, chatId in ipairs(chatIds) do
+    local _, err = httpGet(buildPushUrl(chatId, player, message))
+    if err then
+      lastErr = err
+    end
+  end
+
+  if lastErr ~= nil then
+    return false, lastErr
   end
 
   return true, nil
@@ -161,18 +193,27 @@ end
 
 print("[bridge] Старт. Опрос: " .. BRIDGE_BASE_URL)
 
+local chatIds = getChatIdList()
+if #chatIds == 0 then
+  io.stderr:write("[bridge] TELEGRAM_CHAT_IDS пуст. Добавьте хотя бы один chat id.\n")
+  return
+end
+
+print("[bridge] Chat IDs: " .. table.concat(chatIds, ", "))
+
 while true do
-  local body, err = httpGet(buildPullUrl())
+  for _, chatId in ipairs(chatIds) do
+    local body, err = httpGet(buildPullUrl(chatId))
 
-
-  if err then
-    io.stderr:write("[bridge] HTTP ошибка: " .. tostring(err) .. "\n")
-  elseif body and body ~= "" then
-    local ok, sendErr = sendToMinecraftChat(body)
-    if not ok then
-      io.stderr:write("[bridge] Ошибка chat_box: " .. tostring(sendErr) .. "\n")
-    else
-      print("[bridge] > " .. body)
+    if err then
+      io.stderr:write("[bridge] HTTP ошибка (chatId=" .. chatId .. "): " .. tostring(err) .. "\n")
+    elseif body and body ~= "" then
+      local ok, sendErr = sendToMinecraftChat(body)
+      if not ok then
+        io.stderr:write("[bridge] Ошибка chat_box: " .. tostring(sendErr) .. "\n")
+      else
+        print("[bridge] [" .. chatId .. "] > " .. body)
+      end
     end
   end
 

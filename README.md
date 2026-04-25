@@ -36,7 +36,7 @@ docker compose up --build -d
 
 - `BRIDGE_BASE_URL` (например, `http://silvert.software:3000`)
 - `BRIDGE_TOKEN`
-- `TELEGRAM_CHAT_ID`
+- `TELEGRAM_CHAT_IDS` (массив chat id, можно несколько)
 
 Требуется:
 
