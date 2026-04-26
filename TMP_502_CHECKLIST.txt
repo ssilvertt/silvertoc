@@ -1,0 +1,87 @@
+Временный чеклист: 502 на /bridge/api/public/config
+
+Важно: выполнять из корня проекта
+cd ~/silvertoc
+
+1) Проверка, что контейнеры запущены
+
+docker compose -f docker-compose.yml -f docker-compose.frontend.yml ps
+
+Ожидаем минимум:
+- telegram-bot (Up)
+- silvert-postgres (Up/healthy)
+- silvert-nginx (Up)
+- silvert-frontend (Up)
+
+2) Проверка .env (должны быть заполнены)
+
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_BOT_USERNAME=...
+BRIDGE_TOKEN=...
+DATABASE_URL=postgresql://postgres:postgres@postgres:5432/silvertoc
+SESSION_SECRET=...
+ADMIN_TELEGRAM_IDS=7620202582
+SECURE_COOKIES=false   (или true, если строго https и нужная схема cookie)
+
+3) Логи backend (главный шаг)
+
+docker compose -f docker-compose.yml -f docker-compose.frontend.yml logs --tail=200 telegram-bot
+
+Если есть ошибка запуска (env/DB/миграция/порт) — исправить по логу.
+
+4) Полная пересборка и перезапуск
+
+docker compose -f docker-compose.yml -f docker-compose.frontend.yml down
+docker compose -f docker-compose.yml -f docker-compose.frontend.yml build --no-cache telegram-bot nginx frontend
+docker compose -f docker-compose.yml -f docker-compose.frontend.yml up -d
+
+5) Проверка backend ИЗНУТРИ nginx-контейнера
+
+docker exec silvert-nginx sh -lc 'wget -qO- http://telegram-bot:3000/health'
+
+Ожидается JSON: {"ok":true}
+
+6) Внешняя проверка API
+
+curl -kL https://silvert.software/bridge/api/public/config
+
+Ожидается JSON: {"ok":true,"botUsername":"..."}
+
+7) Если снова 502
+
+Собрать 2 лога и смотреть вместе:
+
+docker compose -f docker-compose.yml -f docker-compose.frontend.yml logs --tail=200 telegram-bot
+docker compose -f docker-compose.yml -f docker-compose.frontend.yml logs --tail=200 nginx
+
+8) Быстрый тест Telegram login endpoint (после того как /bridge/api/public/config уже JSON)
+
+Открыть в браузере: https://silvert.software
+Если виджет загрузился, но вход не проходит — смотреть только логи telegram-bot в момент клика.
+
+9) Важно по текущей ситуации (если снова 502)
+
+Если в `docker compose ... ps` нет контейнера `silvert-postgres`, значит на VPS не подхватилась актуальная версия `docker-compose.yml`.
+
+Сделать:
+
+- убедиться, что в `docker-compose.yml` есть сервис `postgres`
+- обновить код проекта на VPS (git pull / перезаливка)
+- пересоздать стек с удалением сирот:
+
+docker compose -f docker-compose.yml -f docker-compose.frontend.yml up --build -d --remove-orphans
+
+Проверка снова:
+
+docker compose -f docker-compose.yml -f docker-compose.frontend.yml ps
+
+Должны быть:
+- telegram-bot
+- silvert-postgres
+- silvert-nginx
+- silvert-frontend
+
+10) Предупреждение `version is obsolete`
+
+Это не ошибка запуска, а предупреждение Docker Compose v2.
+Если в локальных файлах еще есть строка `version: "3.9"`, ее можно удалить.

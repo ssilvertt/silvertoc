@@ -60,6 +60,18 @@ export class BridgeState {
     return this.queuesByChatId.get(chatId)?.length ?? 0;
   }
 
+  enabledChatsCount(): number {
+    return this.enabledChatIds.size;
+  }
+
+  totalQueuedMessages(): number {
+    let total = 0;
+    for (const queue of this.queuesByChatId.values()) {
+      total += queue.length;
+    }
+    return total;
+  }
+
   private loadState(): void {
     try {
       if (!fs.existsSync(this.stateFilePath)) {

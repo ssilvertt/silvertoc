@@ -1,10 +1,27 @@
-version: "3.9"
-
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: silvert-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: silvertoc
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d silvertoc"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   telegram-bot:
     build: .
     container_name: telegram-bot
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     env_file:
       - .env
     expose:
@@ -33,3 +50,6 @@ services:
     volumes:
       - ./certbot/www:/var/www/certbot
       - ./certbot/conf:/etc/letsencrypt
+
+volumes:
+  postgres_data:
