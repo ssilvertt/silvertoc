@@ -59,7 +59,6 @@ function App() {
   const [isLoginLoading, setIsLoginLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [widgetError, setWidgetError] = useState<string | null>(null)
-  const [widgetReloadKey, setWidgetReloadKey] = useState(0)
   const [botUsername, setBotUsername] = useState<string>("")
   const [user, setUser] = useState<ApiUser | null>(null)
   const [adminUsers, setAdminUsers] = useState<ApiUser[]>([])
@@ -200,7 +199,7 @@ function App() {
       window.clearTimeout(checkTimer)
       window.onTelegramAuth = undefined
     }
-  }, [isBootLoading, botUsername, user, widgetReloadKey])
+  }, [isBootLoading, botUsername, user])
 
   const handleLogout = async () => {
     await fetch(`${API_BASE}/auth/logout`, {
@@ -235,20 +234,14 @@ function App() {
       <main className="mx-auto flex min-h-screen w-full max-w-md items-center px-4">
         <Card className="w-full">
           <CardHeader>
-            <CardTitle>Вход через Telegram</CardTitle>
+            <CardTitle>Вход в админку</CardTitle>
             <CardDescription>Авторизуйтесь через официальный Telegram Login Widget</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div ref={widgetContainerRef} className="min-h-10" />
+          <CardContent className="flex min-h-44 flex-col items-center justify-center gap-4">
+            <div ref={widgetContainerRef} className="flex min-h-10 w-full justify-center" />
             {isLoginLoading ? <p className="text-sm text-muted-foreground">Проверяем вход...</p> : null}
             {widgetError ? <p className="text-sm text-destructive">{widgetError}</p> : null}
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
-            <Button type="button" variant="outline" className="w-full" onClick={() => setWidgetReloadKey((x) => x + 1)}>
-              Перезагрузить кнопку входа
-            </Button>
-            <div className="text-xs text-muted-foreground">
-              Если кнопка не появилась: в BotFather выполните <b>/setdomain</b> и укажите <b>silvert.software</b>.
-            </div>
           </CardContent>
         </Card>
       </main>
