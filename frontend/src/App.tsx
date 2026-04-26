@@ -58,6 +58,7 @@ function App() {
   const [isBootLoading, setIsBootLoading] = useState(true)
   const [isLoginLoading, setIsLoginLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [widgetError, setWidgetError] = useState<string | null>(null)
   const [botUsername, setBotUsername] = useState<string>("")
   const [user, setUser] = useState<ApiUser | null>(null)
   const [adminUsers, setAdminUsers] = useState<ApiUser[]>([])
@@ -136,6 +137,8 @@ function App() {
       return
     }
 
+    const safeBotUsername = botUsername.replace(/^@/, "")
+    setWidgetError(null)
     widgetContainerRef.current.innerHTML = ""
 
     window.onTelegramAuth = (payload: TelegramAuthPayload) => {
@@ -173,16 +176,29 @@ function App() {
     const script = document.createElement("script")
     script.src = "https://telegram.org/js/telegram-widget.js?22"
     script.async = true
-    script.setAttribute("data-telegram-login", botUsername)
+    script.setAttribute("data-telegram-login", safeBotUsername)
     script.setAttribute("data-size", "large")
     script.setAttribute("data-userpic", "false")
     script.setAttribute("data-radius", "8")
     script.setAttribute("data-request-access", "write")
     script.setAttribute("data-onauth", "onTelegramAuth(user)")
+    script.onerror = () => {
+      setWidgetError("Не удалось загрузить Telegram widget script")
+    }
 
     widgetContainerRef.current.appendChild(script)
 
+    const checkTimer = window.setTimeout(() => {
+      const hasWidget = Boolean(widgetContainerRef.current?.querySelector("iframe"))
+      if (!hasWidget) {
+        setWidgetError(
+          "Telegram кнопка не отрисована. Проверьте BotFather /setdomain = silvert.software и отключите блокировщики скриптов.",
+        )
+      }
+    }, 5000)
+
     return () => {
+      window.clearTimeout(checkTimer)
       window.onTelegramAuth = undefined
     }
   }, [botUsername, user])
@@ -226,7 +242,11 @@ function App() {
           <CardContent className="space-y-4">
             <div ref={widgetContainerRef} className="min-h-10" />
             {isLoginLoading ? <p className="text-sm text-muted-foreground">Проверяем вход...</p> : null}
+            {widgetError ? <p className="text-sm text-destructive">{widgetError}</p> : null}
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            <div className="text-xs text-muted-foreground">
+              Если кнопка не появилась: в BotFather выполните <b>/setdomain</b> и укажите <b>silvert.software</b>.
+            </div>
           </CardContent>
         </Card>
       </main>
