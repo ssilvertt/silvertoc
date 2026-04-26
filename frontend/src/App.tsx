@@ -42,6 +42,17 @@ declare global {
 
 const API_BASE = "/api"
 
+async function readJsonOrThrow(response: Response): Promise<unknown> {
+  const contentType = response.headers.get("content-type") ?? ""
+
+  if (!contentType.includes("application/json")) {
+    const text = await response.text()
+    throw new Error(`API ${response.status}: ожидался JSON, получено: ${text.slice(0, 160)}`)
+  }
+
+  return response.json()
+}
+
 function App() {
   const widgetContainerRef = useRef<HTMLDivElement | null>(null)
   const [isBootLoading, setIsBootLoading] = useState(true)
@@ -62,7 +73,7 @@ function App() {
       return
     }
 
-    const data = (await response.json()) as { ok: boolean; user: ApiUser }
+    const data = (await readJsonOrThrow(response)) as { ok: boolean; user: ApiUser }
     if (data.ok) {
       setUser(data.user)
     }
@@ -94,10 +105,11 @@ function App() {
       try {
         const configResponse = await fetch(`${API_BASE}/public/config`, { credentials: "include" })
         if (!configResponse.ok) {
-          throw new Error("Не удалось получить публичную конфигурацию")
+          const text = await configResponse.text()
+          throw new Error(`Не удалось получить публичную конфигурацию: ${configResponse.status} ${text.slice(0, 120)}`)
         }
 
-        const configData = (await configResponse.json()) as { ok: boolean; botUsername: string }
+        const configData = (await readJsonOrThrow(configResponse)) as { ok: boolean; botUsername: string }
         setBotUsername(configData.botUsername)
 
         await loadSession()
@@ -143,7 +155,7 @@ function App() {
             }
             throw new Error(failed.error ?? "Ошибка авторизации")
           }
-          return response.json() as Promise<{ ok: boolean; user: ApiUser }>
+          return readJsonOrThrow(response) as Promise<{ ok: boolean; user: ApiUser }>
         })
         .then((data) => {
           if (data.ok) {
