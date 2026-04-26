@@ -6,4 +6,5 @@ dist
 data
 frontend/node_modules
 frontend/dist
+README.md
 READMEai.md
