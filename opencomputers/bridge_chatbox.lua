@@ -6,7 +6,7 @@ local event = require("event")
 local internet = require("internet")
 
 
-local BRIDGE_BASE_URL = "http://silvert.software:3000"
+local BRIDGE_BASE_URL = "http://silvert.software/bridge"
 local BRIDGE_TOKEN = "e8c05934c1186dbe83405419362892ca2584d2634d37d796f54eaf91de03fa3a"
 local TELEGRAM_CHAT_IDS = {
   "7620202582",
@@ -16,6 +16,9 @@ local TELEGRAM_CHAT_IDS = {
 local POLL_INTERVAL_SEC = 1.0
 local BOT_NAME = "TG-Bridge"
 local FORWARD_MC_CHAT_TO_TG = true
+local IGNORE_PLAYERS = {
+  knipsa = true,
+}
 
 local function findChatComponent()
   local candidates = { "chat_box", "chatbox", "chat_upgrade" }
@@ -168,6 +171,11 @@ local function forwardMinecraftMessageToTelegram(player, message)
   end
 
   if tostring(player) == BOT_NAME then
+    return true, nil
+  end
+
+  local playerLower = tostring(player):lower()
+  if IGNORE_PLAYERS[playerLower] then
     return true, nil
   end
 
