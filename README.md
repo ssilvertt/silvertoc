@@ -47,13 +47,73 @@ docker compose up --build -d
 3. Запустите с overlay-конфигом:
 
 ```bash
+cd /Users/silvert/WebstormProjects/silvertoc
 docker compose -f docker-compose.yml -f docker-compose.frontend.yml up --build -d
+```
+
+Важно: команда должна быть без квадратных скобок и без ссылок, просто текст как выше.
+
+Если вы уже находитесь в папке `frontend/`, используйте:
+
+```bash
+docker compose -f ../docker-compose.yml -f ../docker-compose.frontend.yml up --build -d
 ```
 
 После этого:
 
 - `https://silvert.software/` -> React
 - `https://silvert.software/bridge/*` -> bot backend
+
+Если контейнер `silvert-nginx` уходит в `Restarting`, сначала проверьте лог:
+
+```bash
+docker logs --tail 100 silvert-nginx
+```
+
+## Let's Encrypt (HTTPS)
+
+1. Запустите стек в HTTP-режиме (чтобы работал ACME challenge):
+
+```bash
+cd ~/silvertoc
+docker compose -f docker-compose.yml -f docker-compose.frontend.yml up --build -d
+```
+
+2. Выпустите сертификат:
+
+```bash
+docker compose --profile tools run --rm certbot certonly \
+	--webroot -w /var/www/certbot \
+	-d silvert.software \
+	--email your@email.com \
+	--agree-tos --no-eff-email
+```
+
+3. Включите SSL-конфиг nginx:
+
+```bash
+cp ./nginx/default.with-frontend.ssl.conf ./nginx/default.with-frontend.conf
+docker compose -f docker-compose.yml -f docker-compose.frontend.yml restart nginx
+```
+
+4. Проверка:
+
+```bash
+curl -I https://silvert.software
+curl https://silvert.software/bridge/health
+```
+
+5. Автопродление (cron на VPS):
+
+```bash
+crontab -e
+```
+
+Добавьте строку:
+
+```cron
+0 3 * * * cd ~/silvertoc && docker compose --profile tools run --rm certbot renew --webroot -w /var/www/certbot && docker compose -f docker-compose.yml -f docker-compose.frontend.yml restart nginx
+```
 
 ## OpenComputers скрипт
 
