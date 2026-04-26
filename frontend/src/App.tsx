@@ -59,6 +59,7 @@ function App() {
   const [isLoginLoading, setIsLoginLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [widgetError, setWidgetError] = useState<string | null>(null)
+  const [widgetReloadKey, setWidgetReloadKey] = useState(0)
   const [botUsername, setBotUsername] = useState<string>("")
   const [user, setUser] = useState<ApiUser | null>(null)
   const [adminUsers, setAdminUsers] = useState<ApiUser[]>([])
@@ -174,12 +175,10 @@ function App() {
     }
 
     const script = document.createElement("script")
-    script.src = "https://telegram.org/js/telegram-widget.js?22"
+    script.src = "https://telegram.org/js/telegram-widget.js?23"
     script.async = true
     script.setAttribute("data-telegram-login", safeBotUsername)
     script.setAttribute("data-size", "large")
-    script.setAttribute("data-userpic", "false")
-    script.setAttribute("data-radius", "8")
     script.setAttribute("data-request-access", "write")
     script.setAttribute("data-onauth", "onTelegramAuth(user)")
     script.onerror = () => {
@@ -201,7 +200,7 @@ function App() {
       window.clearTimeout(checkTimer)
       window.onTelegramAuth = undefined
     }
-  }, [botUsername, user])
+  }, [botUsername, user, widgetReloadKey])
 
   const handleLogout = async () => {
     await fetch(`${API_BASE}/auth/logout`, {
@@ -244,6 +243,9 @@ function App() {
             {isLoginLoading ? <p className="text-sm text-muted-foreground">Проверяем вход...</p> : null}
             {widgetError ? <p className="text-sm text-destructive">{widgetError}</p> : null}
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            <Button type="button" variant="outline" className="w-full" onClick={() => setWidgetReloadKey((x) => x + 1)}>
+              Перезагрузить кнопку входа
+            </Button>
             <div className="text-xs text-muted-foreground">
               Если кнопка не появилась: в BotFather выполните <b>/setdomain</b> и укажите <b>silvert.software</b>.
             </div>
