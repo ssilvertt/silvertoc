@@ -13,6 +13,10 @@ export const telegramCommands = [
 
 export async function registerBotCommands(bot: Telegraf<Context>): Promise<void> {
   await bot.telegram.setMyCommands([...telegramCommands]);
+  await bot.telegram.setMyCommands([...telegramCommands], { scope: { type: "all_private_chats" } });
+  await bot.telegram.setMyCommands([...telegramCommands], { scope: { type: "all_group_chats" } });
+  await bot.telegram.setMyCommands([...telegramCommands], { scope: { type: "all_chat_administrators" } });
+  await bot.telegram.setChatMenuButton({ menuButton: { type: "commands" } });
 }
 
 function getHelpText(): string {
@@ -22,8 +26,46 @@ function getHelpText(): string {
   ].join("\n");
 }
 
-export function createBot(token: string, bridgeState: BridgeState): Telegraf<Context> {
+export function createBot(token: string, bridgeState: BridgeState, botUsername?: string): Telegraf<Context> {
   const bot = new Telegraf<Context>(token);
+
+  const normalizedBotUsername = botUsername?.replace(/^@/, "").toLowerCase();
+
+  const commandNameFromText = (text: string): string | null => {
+    if (!text.startsWith("/")) {
+      return null;
+    }
+
+    const firstToken = text.trim().split(/\s+/)[0] ?? "";
+    const commandToken = firstToken.slice(1);
+    if (!commandToken) {
+      return null;
+    }
+
+    const [name, mentionedUsername] = commandToken.toLowerCase().split("@");
+
+    if (mentionedUsername && normalizedBotUsername && mentionedUsername !== normalizedBotUsername) {
+      return null;
+    }
+
+    return name;
+  };
+
+  const enableOcMode = (chatId: number): string => {
+    bridgeState.enableForChat(chatId);
+    return "Режим OpenComputers включен. Новые сообщения будут отправляться в очередь для робота.";
+  };
+
+  const disableOcMode = (chatId: number): string => {
+    bridgeState.disableForChat(chatId);
+    return "Режим OpenComputers выключен.";
+  };
+
+  const ocModeStatus = (chatId: number): string => {
+    const enabled = bridgeState.isEnabledForChat(chatId);
+    const queueSize = bridgeState.size(chatId);
+    return `Режим: ${enabled ? "включен" : "выключен"}. Очередь: ${queueSize}`;
+  };
 
   bot.start((ctx) => {
     void ctx.reply(getHelpText());
@@ -33,32 +75,39 @@ export function createBot(token: string, bridgeState: BridgeState): Telegraf<Con
     void ctx.reply(getHelpText());
   });
 
-  bot.command("ping", (ctx) => {
-    void ctx.reply("pong ✅");
-  });
-
-  bot.command("oc_mode_on", (ctx) => {
-    const chatId = ctx.chat.id;
-    bridgeState.enableForChat(chatId);
-    void ctx.reply("Режим OpenComputers включен. Новые сообщения будут отправляться в очередь для робота.");
-  });
-
-  bot.command("oc_mode_off", (ctx) => {
-    const chatId = ctx.chat.id;
-    bridgeState.disableForChat(chatId);
-    void ctx.reply("Режим OpenComputers выключен.");
-  });
-
-  bot.command("oc_mode_status", (ctx) => {
-    const chatId = ctx.chat.id;
-    const enabled = bridgeState.isEnabledForChat(chatId);
-    const queueSize = bridgeState.size(chatId);
-    void ctx.reply(`Режим: ${enabled ? "включен" : "выключен"}. Очередь: ${queueSize}`);
-  });
-
   bot.on("text", (ctx) => {
     const text = ctx.message.text;
     const chatId = ctx.chat.id;
+    const command = commandNameFromText(text);
+
+    if (command === "start" || command === "help") {
+      return;
+    }
+
+    if (command === "ping") {
+      void ctx.reply("pong ✅");
+      return;
+    }
+
+    if (command === "oc_mode_on") {
+      void ctx.reply(enableOcMode(chatId));
+      return;
+    }
+
+    if (command === "oc_mode_off") {
+      void ctx.reply(disableOcMode(chatId));
+      return;
+    }
+
+    if (command === "oc_mode_status") {
+      void ctx.reply(ocModeStatus(chatId));
+      return;
+    }
+
+    if (command !== null) {
+      void ctx.reply("Неизвестная команда. Используйте /help");
+      return;
+    }
 
     if (!bridgeState.isEnabledForChat(chatId)) {
       void ctx.reply(`Вы написали: ${text}`);

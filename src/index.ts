@@ -9,7 +9,7 @@ async function bootstrap(): Promise<void> {
   await initDatabase(dbPool);
 
   const bridgeState = new BridgeState(config.bridgeStateFile);
-  const bot = createBot(config.telegramBotToken, bridgeState);
+  const bot = createBot(config.telegramBotToken, bridgeState, config.telegramBotUsername);
   const bridgeServer = startBridgeServer({
     host: config.bridgeHost,
     port: config.bridgePort,

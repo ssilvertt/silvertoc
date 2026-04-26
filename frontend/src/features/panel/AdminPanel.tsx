@@ -21,7 +21,7 @@ export function AdminPanel({ adminSummary, adminUsers }: AdminPanelProps) {
           <p>Активных за 24ч: {adminSummary?.active24h ?? "-"}</p>
           <p>Включенных bridge-чатов: {adminSummary?.bridgeEnabledChats ?? "-"}</p>
           <p>Сообщений в очередях: {adminSummary?.bridgeQueuedMessages ?? "-"}</p>
-          <p className="text-muted-foreground">Agents: данные не найдены в текущем frontend-проекте.</p>
+         
         </CardContent>
       </Card>
 
