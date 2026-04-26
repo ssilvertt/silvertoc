@@ -134,7 +134,7 @@ function App() {
   }, [user?.isAdmin])
 
   useEffect(() => {
-    if (!botUsername || user || !widgetContainerRef.current) {
+    if (isBootLoading || !botUsername || user || !widgetContainerRef.current) {
       return
     }
 
@@ -200,7 +200,7 @@ function App() {
       window.clearTimeout(checkTimer)
       window.onTelegramAuth = undefined
     }
-  }, [botUsername, user, widgetReloadKey])
+  }, [isBootLoading, botUsername, user, widgetReloadKey])
 
   const handleLogout = async () => {
     await fetch(`${API_BASE}/auth/logout`, {
