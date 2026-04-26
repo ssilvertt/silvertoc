@@ -40,7 +40,7 @@ declare global {
   }
 }
 
-const API_BASE = "/api"
+const API_BASE = "/bridge/api"
 
 async function readJsonOrThrow(response: Response): Promise<unknown> {
   const contentType = response.headers.get("content-type") ?? ""
