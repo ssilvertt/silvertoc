@@ -51,6 +51,40 @@ local function normalizeKey(str)
   return string.lower(tostring(str or ""))
 end
 
+local function utf8Length(str)
+  local value = tostring(str)
+  local count = 0
+  local index = 1
+
+  while index <= #value do
+    local byte = string.byte(value, index)
+
+    if byte < 128 then
+      index = index + 1
+    elseif byte < 224 then
+      index = index + 2
+    elseif byte < 240 then
+      index = index + 3
+    else
+      index = index + 4
+    end
+
+    count = count + 1
+  end
+
+  return count
+end
+
+local function padRight(str, width)
+  local value = tostring(str)
+  local displayWidth = utf8Length(value)
+  if displayWidth >= width then
+    return value
+  end
+
+  return value .. string.rep(" ", width - displayWidth)
+end
+
 local function registerResource(dict, key, amount)
   if key == nil then
     return
@@ -156,10 +190,22 @@ local function renderScreen(currentResources)
   term.clear()
   term.setCursor(1, 1)
 
+  local resourceWidth = #"Resource"
+  for _, item in ipairs(monitorItems) do
+    local displayWidth = utf8Length(item.displayName)
+    if displayWidth > resourceWidth then
+      resourceWidth = displayWidth
+    end
+  end
+
+  if resourceWidth < 28 then
+    resourceWidth = 28
+  end
+
   print("=== [ ME SYSTEM LIVE MONITOR ] ===")
   print(string.format("Time: %s", os.date("%H:%M:%S")))
   print("----------------------------------")
-  print(string.format("%-28s | %-10s", "Resource", "Amount"))
+  print(padRight("Resource", resourceWidth) .. " | Amount")
   print("----------------------------------")
 
   if #monitorItems == 0 then
@@ -167,7 +213,7 @@ local function renderScreen(currentResources)
   else
     for _, item in ipairs(monitorItems) do
       local amount = lookupAmount(currentResources, item.itemId)
-      print(string.format("%-28s | %-10d", item.displayName, amount))
+      print(padRight(item.displayName, resourceWidth) .. " | " .. tostring(amount))
     end
   end
 

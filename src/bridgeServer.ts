@@ -262,7 +262,7 @@ export function startBridgeServer(options: BridgeServerOptions): http.Server {
 
     void listEnabledMonitorItems(pool)
       .then((items) => {
-        res.type("text/plain").send(items.map((item) => `${item.itemId}\t${item.displayName}`).join("\n"));
+        res.type("text/plain").send(items.map((item) => `${item.itemId}\t${item.displayName}\t${item.currentAmount}`).join("\n"));
       })
       .catch((error: unknown) => {
         res.status(500).send(String(error));
