@@ -16,6 +16,8 @@ export type AdminSummary = {
   active24h: number
   bridgeEnabledChats: number
   bridgeQueuedMessages: number
+  monitorItemsTotal: number
+  monitorItemsEnabled: number
 }
 
 export type TelegramAuthPayload = {

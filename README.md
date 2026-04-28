@@ -6,6 +6,7 @@
 - `opencomputers/` — Lua-скрипт для робота OpenComputers
 - `frontend/` — React сайт
 - `nginx/` — конфиги nginx
+- `opencomputers/mesystem_monitor.lua` — ME-монитор, который синкается с сайтом
 
 ## Быстрый запуск
 
@@ -27,3 +28,9 @@ docker compose -f docker-compose.yml -f docker-compose.frontend.yml down
 
 - Сайт: `http://silvert.software/`
 - Bridge health: `http://silvert.software/bridge/health`
+
+## ME монитор
+
+- сайт хранит список предметов для мониторинга и текущие количества
+- OC-скрипт берёт список с `/bridge/oc/me-monitor/config-text`
+- OC-скрипт отправляет количества на `/bridge/oc/me-monitor/report`

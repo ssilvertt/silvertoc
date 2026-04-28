@@ -6,14 +6,19 @@ import { AdminPanel } from "@/features/panel/AdminPanel"
 import { StatsCards } from "@/features/panel/StatsCards"
 import { UserPanel } from "@/features/panel/UserPanel"
 import {
+  createMonitorItem,
   fetchAdminSummary,
   fetchAdminUsers,
+  fetchMonitorItems,
   fetchPublicConfig,
   fetchSessionUser,
   loginWithTelegram,
+  deleteMonitorItem,
   logoutSession,
+  updateMonitorItem,
 } from "@/lib/api"
 import type { AdminSummary, ApiUser, TelegramAuthPayload } from "@/types/api"
+import type { MonitorItem } from "@/types/monitor"
 
 function App() {
   const widgetContainerRef = useRef<HTMLDivElement | null>(null)
@@ -25,14 +30,16 @@ function App() {
   const [user, setUser] = useState<ApiUser | null>(null)
   const [adminUsers, setAdminUsers] = useState<ApiUser[]>([])
   const [adminSummary, setAdminSummary] = useState<AdminSummary | null>(null)
+  const [monitorItems, setMonitorItems] = useState<MonitorItem[]>([])
   const [previewUserMode, setPreviewUserMode] = useState(false)
 
   const effectiveIsAdmin = Boolean(user?.isAdmin && !previewUserMode)
 
   const loadAdminData = async () => {
-    const [users, summary] = await Promise.all([fetchAdminUsers(), fetchAdminSummary()])
+    const [users, summary, items] = await Promise.all([fetchAdminUsers(), fetchAdminSummary(), fetchMonitorItems()])
     setAdminUsers(users)
     setAdminSummary(summary)
+    setMonitorItems(items)
   }
 
   useEffect(() => {
@@ -41,6 +48,9 @@ function App() {
         const [configData, sessionUser] = await Promise.all([fetchPublicConfig(), fetchSessionUser()])
         setBotUsername(configData.botUsername)
         setUser(sessionUser)
+        if (sessionUser?.isAdmin) {
+          await loadAdminData()
+        }
       } catch (bootError) {
         setError(String(bootError))
       } finally {
@@ -58,6 +68,20 @@ function App() {
 
     void loadAdminData()
   }, [user?.isAdmin])
+
+  useEffect(() => {
+    if (!user?.isAdmin || previewUserMode) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      void fetchMonitorItems().then(setMonitorItems).catch(() => undefined)
+    }, 10000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [user?.isAdmin, previewUserMode])
 
   useEffect(() => {
     if (isBootLoading || !botUsername || user || !widgetContainerRef.current) {
@@ -119,7 +143,38 @@ function App() {
     setUser(null)
     setAdminUsers([])
     setAdminSummary(null)
+    setMonitorItems([])
     setPreviewUserMode(false)
+  }
+
+  const refreshMonitorItems = async () => {
+    const items = await fetchMonitorItems()
+    setMonitorItems(items)
+  }
+
+  const handleCreateMonitorItem = async (label: string) => {
+    const created = await createMonitorItem(label)
+    if (created) {
+      setMonitorItems((current) => [...current, created].sort((left, right) => left.label.localeCompare(right.label)))
+    }
+  }
+
+  const handleUpdateMonitorItem = async (id: number, patch: { label?: string; enabled?: boolean }) => {
+    const updated = await updateMonitorItem(id, patch)
+    if (updated) {
+      setMonitorItems((current) =>
+        current
+          .map((item) => (item.id === id ? updated : item))
+          .sort((left, right) => left.label.localeCompare(right.label)),
+      )
+    }
+  }
+
+  const handleDeleteMonitorItem = async (id: number) => {
+    const deleted = await deleteMonitorItem(id)
+    if (deleted) {
+      setMonitorItems((current) => current.filter((item) => item.id !== id))
+    }
   }
 
   if (isBootLoading) {
@@ -159,7 +214,19 @@ function App() {
 
       <StatsCards isAdmin={effectiveIsAdmin} />
 
-      {effectiveIsAdmin ? <AdminPanel adminSummary={adminSummary} adminUsers={adminUsers} /> : <UserPanel previewFromAdmin={Boolean(user.isAdmin && previewUserMode)} />}
+      {effectiveIsAdmin ? (
+        <AdminPanel
+          adminSummary={adminSummary}
+          adminUsers={adminUsers}
+          monitorItems={monitorItems}
+          onRefreshMonitorItems={refreshMonitorItems}
+          onCreateMonitorItem={handleCreateMonitorItem}
+          onUpdateMonitorItem={handleUpdateMonitorItem}
+          onDeleteMonitorItem={handleDeleteMonitorItem}
+        />
+      ) : (
+        <UserPanel previewFromAdmin={Boolean(user.isAdmin && previewUserMode)} />
+      )}
     </main>
   )
 }

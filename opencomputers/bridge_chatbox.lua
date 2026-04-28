@@ -1,5 +1,3 @@
--- OpenComputers + Computronics bridge script
--- Забирает сообщения из Telegram-бота и отправляет их в Minecraft чат через chat_box.
 
 local component = require("component")
 local event = require("event")

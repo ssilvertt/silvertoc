@@ -1,4 +1,5 @@
 import type { AdminSummary, ApiUser, TelegramAuthPayload } from "@/types/api"
+import type { MonitorItem } from "@/types/monitor"
 
 const API_BASE = "/bridge/api"
 
@@ -85,4 +86,63 @@ export async function fetchAdminSummary(): Promise<AdminSummary | null> {
 
   const data = (await readJsonOrThrow(response)) as { ok: boolean; summary: AdminSummary }
   return data.ok ? data.summary : null
+}
+
+export async function fetchMonitorItems(): Promise<MonitorItem[]> {
+  const response = await fetch(`${API_BASE}/admin/me-monitor/items`, { credentials: "include" })
+  if (!response.ok) {
+    return []
+  }
+
+  const data = (await readJsonOrThrow(response)) as { ok: boolean; items: MonitorItem[] }
+  return data.ok ? data.items : []
+}
+
+export async function createMonitorItem(label: string): Promise<MonitorItem | null> {
+  const response = await fetch(`${API_BASE}/admin/me-monitor/items`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ label }),
+  })
+
+  if (!response.ok) {
+    return null
+  }
+
+  const data = (await readJsonOrThrow(response)) as { ok: boolean; item: MonitorItem }
+  return data.ok ? data.item : null
+}
+
+export async function updateMonitorItem(
+  id: number,
+  patch: { label?: string; enabled?: boolean },
+): Promise<MonitorItem | null> {
+  const response = await fetch(`${API_BASE}/admin/me-monitor/items/${id}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(patch),
+  })
+
+  if (!response.ok) {
+    return null
+  }
+
+  const data = (await readJsonOrThrow(response)) as { ok: boolean; item: MonitorItem }
+  return data.ok ? data.item : null
+}
+
+export async function deleteMonitorItem(id: number): Promise<boolean> {
+  const response = await fetch(`${API_BASE}/admin/me-monitor/items/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+  })
+
+  if (!response.ok) {
+    return false
+  }
+
+  const data = (await readJsonOrThrow(response)) as { ok: boolean }
+  return data.ok
 }
