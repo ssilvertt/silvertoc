@@ -1,6 +1,7 @@
 export type MonitorItem = {
   id: number
-  label: string
+  itemId: string
+  displayName: string
   currentAmount: number
   enabled: boolean
   lastReportedAt: string | null

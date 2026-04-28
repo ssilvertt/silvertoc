@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { toast, Toaster } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { LoginCard } from "@/features/auth/LoginCard"
@@ -152,28 +153,61 @@ function App() {
     setMonitorItems(items)
   }
 
-  const handleCreateMonitorItem = async (label: string) => {
-    const created = await createMonitorItem(label)
-    if (created) {
-      setMonitorItems((current) => [...current, created].sort((left, right) => left.label.localeCompare(right.label)))
+  const handleCreateMonitorItem = async (itemId: string, displayName?: string) => {
+    try {
+      const created = await createMonitorItem(itemId, displayName)
+      if (created) {
+        setMonitorItems((current) =>
+          [...current, created].sort((left, right) => left.displayName.localeCompare(right.displayName)),
+        )
+        toast.success(`Предмет добавлен: ${created.displayName}`)
+        return
+      }
+
+      toast.error("Не удалось добавить предмет")
+    } catch (error) {
+      toast.error(`Не удалось добавить предмет: ${String(error)}`)
     }
   }
 
-  const handleUpdateMonitorItem = async (id: number, patch: { label?: string; enabled?: boolean }) => {
-    const updated = await updateMonitorItem(id, patch)
-    if (updated) {
-      setMonitorItems((current) =>
-        current
-          .map((item) => (item.id === id ? updated : item))
-          .sort((left, right) => left.label.localeCompare(right.label)),
-      )
+  const handleUpdateMonitorItem = async (
+    id: number,
+    patch: { itemId?: string; displayName?: string; enabled?: boolean },
+  ) => {
+    try {
+      const updated = await updateMonitorItem(id, patch)
+      if (updated) {
+        setMonitorItems((current) =>
+          current
+            .map((item) => (item.id === id ? updated : item))
+            .sort((left, right) => left.displayName.localeCompare(right.displayName)),
+        )
+        if (typeof patch.enabled === "boolean") {
+          toast.success(updated.enabled ? `Предмет включен: ${updated.displayName}` : `Предмет выключен: ${updated.displayName}`)
+        } else {
+          toast.success(`Изменения сохранены: ${updated.displayName}`)
+        }
+        return
+      }
+
+      toast.error("Не удалось сохранить изменения")
+    } catch (error) {
+      toast.error(`Не удалось сохранить изменения: ${String(error)}`)
     }
   }
 
   const handleDeleteMonitorItem = async (id: number) => {
-    const deleted = await deleteMonitorItem(id)
-    if (deleted) {
-      setMonitorItems((current) => current.filter((item) => item.id !== id))
+    try {
+      const deleted = await deleteMonitorItem(id)
+      if (deleted) {
+        setMonitorItems((current) => current.filter((item) => item.id !== id))
+        toast.success("Предмет удалён")
+        return
+      }
+
+      toast.error("Не удалось удалить предмет")
+    } catch (error) {
+      toast.error(`Не удалось удалить предмет: ${String(error)}`)
     }
   }
 
@@ -191,6 +225,7 @@ function App() {
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-6xl px-4 py-8">
+      <Toaster position="top-right" theme="dark" richColors closeButton />
       <header className="mb-6 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Silvertoc Panel</h1>

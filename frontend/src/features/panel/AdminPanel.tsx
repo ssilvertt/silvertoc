@@ -10,8 +10,8 @@ type AdminPanelProps = {
   adminUsers: ApiUser[]
   monitorItems: MonitorItem[]
   onRefreshMonitorItems: () => Promise<void>
-  onCreateMonitorItem: (label: string) => Promise<void>
-  onUpdateMonitorItem: (id: number, patch: { label?: string; enabled?: boolean }) => Promise<void>
+  onCreateMonitorItem: (itemId: string, displayName?: string) => Promise<void>
+  onUpdateMonitorItem: (id: number, patch: { itemId?: string; displayName?: string; enabled?: boolean }) => Promise<void>
   onDeleteMonitorItem: (id: number) => Promise<void>
 }
 

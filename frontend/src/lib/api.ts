@@ -98,12 +98,12 @@ export async function fetchMonitorItems(): Promise<MonitorItem[]> {
   return data.ok ? data.items : []
 }
 
-export async function createMonitorItem(label: string): Promise<MonitorItem | null> {
+export async function createMonitorItem(itemId: string, displayName?: string): Promise<MonitorItem | null> {
   const response = await fetch(`${API_BASE}/admin/me-monitor/items`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ label }),
+    body: JSON.stringify({ itemId, displayName }),
   })
 
   if (!response.ok) {
@@ -116,7 +116,7 @@ export async function createMonitorItem(label: string): Promise<MonitorItem | nu
 
 export async function updateMonitorItem(
   id: number,
-  patch: { label?: string; enabled?: boolean },
+  patch: { itemId?: string; displayName?: string; enabled?: boolean },
 ): Promise<MonitorItem | null> {
   const response = await fetch(`${API_BASE}/admin/me-monitor/items/${id}`, {
     method: "PATCH",

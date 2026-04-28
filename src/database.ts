@@ -36,7 +36,8 @@ export type TelegramLoginInput = {
 
 export type MonitorItem = {
   id: number;
-  label: string;
+  itemId: string;
+  displayName: string;
   currentAmount: number;
   enabled: boolean;
   lastReportedAt: string | null;
@@ -46,7 +47,9 @@ export type MonitorItem = {
 
 type MonitorItemRow = {
   id: number;
-  label: string;
+  label: string | null;
+  item_id: string | null;
+  display_name: string | null;
   current_amount: string;
   enabled: boolean;
   last_reported_at: Date | null;
@@ -100,6 +103,8 @@ export async function initDatabase(pool: Pool): Promise<void> {
     CREATE TABLE IF NOT EXISTS me_monitor_items (
       id SERIAL PRIMARY KEY,
       label TEXT UNIQUE NOT NULL,
+      item_id TEXT,
+      display_name TEXT,
       current_amount BIGINT NOT NULL DEFAULT 0,
       enabled BOOLEAN NOT NULL DEFAULT TRUE,
       last_reported_at TIMESTAMPTZ,
@@ -108,14 +113,20 @@ export async function initDatabase(pool: Pool): Promise<void> {
     )
   `);
 
+  await pool.query(`ALTER TABLE me_monitor_items ADD COLUMN IF NOT EXISTS item_id TEXT`);
+  await pool.query(`ALTER TABLE me_monitor_items ADD COLUMN IF NOT EXISTS display_name TEXT`);
+  await pool.query(`UPDATE me_monitor_items SET item_id = COALESCE(NULLIF(item_id, ''), label)`);
+  await pool.query(`UPDATE me_monitor_items SET display_name = COALESCE(NULLIF(display_name, ''), label)`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS me_monitor_items_item_id_idx ON me_monitor_items(item_id)`);
+
   const monitorCountResult = await pool.query<{ count: string }>("SELECT COUNT(*)::text AS count FROM me_monitor_items");
   if (Number(monitorCountResult.rows[0]?.count ?? 0) === 0) {
     for (const label of defaultMonitorLabels) {
       await pool.query(
         `
-          INSERT INTO me_monitor_items (label)
-          VALUES ($1)
-          ON CONFLICT (label) DO NOTHING
+          INSERT INTO me_monitor_items (label, item_id, display_name)
+          VALUES ($1, $1, $1)
+          ON CONFLICT (item_id) DO NOTHING
         `,
         [label],
       );
@@ -124,9 +135,13 @@ export async function initDatabase(pool: Pool): Promise<void> {
 }
 
 function mapMonitorItem(row: MonitorItemRow): MonitorItem {
+  const itemId = row.item_id ?? row.label ?? "";
+  const displayName = row.display_name ?? row.label ?? itemId;
+
   return {
     id: row.id,
-    label: row.label,
+    itemId,
+    displayName,
     currentAmount: Number(row.current_amount),
     enabled: row.enabled,
     lastReportedAt: row.last_reported_at ? row.last_reported_at.toISOString() : null,
@@ -205,25 +220,37 @@ export async function getUserSummary(pool: Pool): Promise<{ total: number; activ
 }
 
 export async function listMonitorItems(pool: Pool): Promise<MonitorItem[]> {
-  const result = await pool.query<MonitorItemRow>("SELECT * FROM me_monitor_items ORDER BY label ASC");
+  const result = await pool.query<MonitorItemRow>(
+    "SELECT * FROM me_monitor_items ORDER BY COALESCE(display_name, label) ASC",
+  );
   return result.rows.map(mapMonitorItem);
 }
 
 export async function listEnabledMonitorItems(pool: Pool): Promise<MonitorItem[]> {
-  const result = await pool.query<MonitorItemRow>("SELECT * FROM me_monitor_items WHERE enabled = TRUE ORDER BY label ASC");
+  const result = await pool.query<MonitorItemRow>(
+    "SELECT * FROM me_monitor_items WHERE enabled = TRUE ORDER BY COALESCE(display_name, label) ASC",
+  );
   return result.rows.map(mapMonitorItem);
 }
 
-export async function createMonitorItem(pool: Pool, label: string): Promise<MonitorItem> {
+export async function createMonitorItem(pool: Pool, itemId: string, displayName?: string): Promise<MonitorItem> {
+  const nextItemId = itemId.trim();
+  const nextDisplayName = (displayName?.trim() || nextItemId).trim();
+
   const result = await pool.query<MonitorItemRow>(
     `
-      INSERT INTO me_monitor_items (label)
-      VALUES ($1)
+      INSERT INTO me_monitor_items (label, item_id, display_name)
+      VALUES ($1, $2, $3)
       ON CONFLICT (label)
-      DO UPDATE SET enabled = TRUE, updated_at = NOW()
+      DO UPDATE SET
+        item_id = EXCLUDED.item_id,
+        display_name = EXCLUDED.display_name,
+        label = EXCLUDED.label,
+        enabled = TRUE,
+        updated_at = NOW()
       RETURNING *
     `,
-    [label],
+    [nextItemId, nextItemId, nextDisplayName],
   );
 
   return mapMonitorItem(result.rows[0]);
@@ -232,26 +259,31 @@ export async function createMonitorItem(pool: Pool, label: string): Promise<Moni
 export async function updateMonitorItem(
   pool: Pool,
   id: number,
-  patch: { label?: string; enabled?: boolean },
+  patch: { itemId?: string; displayName?: string; enabled?: boolean },
 ): Promise<MonitorItem | null> {
   const current = await pool.query<MonitorItemRow>("SELECT * FROM me_monitor_items WHERE id = $1 LIMIT 1", [id]);
   if (current.rows.length === 0) {
     return null;
   }
 
-  const nextLabel = patch.label?.trim() || current.rows[0].label;
+  const currentItemId = current.rows[0].item_id ?? current.rows[0].label ?? "";
+  const currentDisplayName = current.rows[0].display_name ?? current.rows[0].label ?? currentItemId;
+  const nextItemId = patch.itemId?.trim() || currentItemId;
+  const nextDisplayName = patch.displayName?.trim() || currentDisplayName;
   const nextEnabled = typeof patch.enabled === "boolean" ? patch.enabled : current.rows[0].enabled;
 
   const result = await pool.query<MonitorItemRow>(
     `
       UPDATE me_monitor_items
       SET label = $1,
-          enabled = $2,
+          item_id = $1,
+          display_name = $2,
+          enabled = $3,
           updated_at = NOW()
-      WHERE id = $3
+      WHERE id = $4
       RETURNING *
     `,
-    [nextLabel, nextEnabled, id],
+    [nextItemId, nextDisplayName, nextEnabled, id],
   );
 
   return mapMonitorItem(result.rows[0]);
@@ -264,7 +296,7 @@ export async function deleteMonitorItem(pool: Pool, id: number): Promise<boolean
 
 export async function updateMonitorAmounts(
   pool: Pool,
-  entries: Array<{ label: string; amount: number }>,
+  entries: Array<{ itemId: string; amount: number }>,
 ): Promise<void> {
   for (const entry of entries) {
     await pool.query(
@@ -273,9 +305,9 @@ export async function updateMonitorAmounts(
         SET current_amount = $1,
             last_reported_at = NOW(),
             updated_at = NOW()
-        WHERE label = $2 AND enabled = TRUE
+        WHERE enabled = TRUE AND (item_id = $2 OR label = $2)
       `,
-      [entry.amount, entry.label],
+      [entry.amount, entry.itemId],
     );
   }
 }

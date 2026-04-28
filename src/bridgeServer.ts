@@ -182,15 +182,16 @@ export function startBridgeServer(options: BridgeServerOptions): http.Server {
   });
 
   app.post("/api/admin/me-monitor/items", requireSession, requireAdmin, async (req: Request, res: Response) => {
-    const label = String(req.body?.label ?? "").trim();
+    const itemId = String(req.body?.itemId ?? req.body?.label ?? "").trim();
+    const displayName = req.body?.displayName !== undefined ? String(req.body.displayName).trim() : undefined;
 
-    if (!label) {
-      res.status(400).json({ ok: false, error: "label is required" });
+    if (!itemId) {
+      res.status(400).json({ ok: false, error: "itemId is required" });
       return;
     }
 
     try {
-      const item = await createMonitorItem(pool, label);
+      const item = await createMonitorItem(pool, itemId, displayName);
       res.json({ ok: true, item });
     } catch (error) {
       res.status(500).json({ ok: false, error: String(error) });
@@ -204,11 +205,13 @@ export function startBridgeServer(options: BridgeServerOptions): http.Server {
       return;
     }
 
-    const label = req.body?.label !== undefined ? String(req.body.label).trim() : undefined;
+    const itemId =
+      req.body?.itemId !== undefined ? String(req.body.itemId).trim() : req.body?.label !== undefined ? String(req.body.label).trim() : undefined;
+    const displayName = req.body?.displayName !== undefined ? String(req.body.displayName).trim() : undefined;
     const enabled = req.body?.enabled !== undefined ? Boolean(req.body.enabled) : undefined;
 
     try {
-      const item = await updateMonitorItem(pool, id, { label, enabled });
+      const item = await updateMonitorItem(pool, id, { itemId, displayName, enabled });
       if (!item) {
         res.status(404).json({ ok: false, error: "Not found" });
         return;
@@ -259,7 +262,7 @@ export function startBridgeServer(options: BridgeServerOptions): http.Server {
 
     void listEnabledMonitorItems(pool)
       .then((items) => {
-        res.type("text/plain").send(items.map((item) => item.label).join("\n"));
+        res.type("text/plain").send(items.map((item) => `${item.itemId}\t${item.displayName}`).join("\n"));
       })
       .catch((error: unknown) => {
         res.status(500).send(String(error));
@@ -281,7 +284,7 @@ export function startBridgeServer(options: BridgeServerOptions): http.Server {
     }
 
     try {
-      await updateMonitorAmounts(pool, [{ label, amount }]);
+      await updateMonitorAmounts(pool, [{ itemId: label, amount }]);
       res.json({ ok: true });
     } catch (error) {
       res.status(500).json({ ok: false, error: String(error) });
