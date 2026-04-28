@@ -1,4 +1,5 @@
 local component = require("component")
+local event = require("event")
 local internet = require("internet")
 local gpu = component.gpu
 local system = require("System")
@@ -11,6 +12,7 @@ local REFRESH_SECONDS = 8
 
 local items = {}
 local lastRefresh = 0
+local lastError = nil
 
 local function utf8Length(str)
   local value = tostring(str)
@@ -62,7 +64,49 @@ local function httpGet(url)
     return nil, reason or "request failed"
   end
 
+  -- MineOS/OpenOS compatibility: some environments may return body string,
+  -- iterator function or stream-like object.
+  if type(handle) == "string" then
+    return handle, nil
+  end
+
   local body = ""
+
+  if type(handle) == "function" then
+    local ok, err = pcall(function()
+      for chunk in handle do
+        body = body .. (chunk or "")
+      end
+    end)
+
+    if not ok then
+      return nil, err or "stream read failed"
+    end
+
+    return body, nil
+  end
+
+  if type(handle) == "table" and type(handle.read) == "function" then
+    local ok, err = pcall(function()
+      while true do
+        local chunk = handle.read(math.huge)
+        if not chunk or chunk == "" then
+          break
+        end
+        body = body .. chunk
+      end
+      if type(handle.close) == "function" then
+        handle.close()
+      end
+    end)
+
+    if not ok then
+      return nil, err or "stream read failed"
+    end
+
+    return body, nil
+  end
+
   local ok, err = pcall(function()
     for chunk in handle do
       body = body .. chunk
@@ -124,6 +168,14 @@ local function parseItems(body)
 
   for line in tostring(body):gmatch("[^\r\n]+") do
     local itemId, displayName, amountText = line:match("^([^\t]+)\t([^\t]+)\t?(.*)$")
+
+    -- Backward compatibility for old endpoint format: one value per line.
+    if itemId == nil then
+      itemId = line:match("^%s*(.-)%s*$")
+      displayName = itemId
+      amountText = "0"
+    end
+
     if itemId ~= nil and itemId ~= "" then
       table.insert(parsed, {
         itemId = itemId,
@@ -139,11 +191,13 @@ end
 local function refreshData()
   local body, err = httpGet(BRIDGE_BASE_URL .. "/oc/me-monitor/config-text?token=" .. urlEncode(BRIDGE_TOKEN))
   if not body then
+    lastError = tostring(err)
     return false, err
   end
 
   items = parseItems(body)
   lastRefresh = system.getTime()
+  lastError = nil
   return true
 end
 
@@ -225,6 +279,10 @@ local function drawDashboard()
   if #items == 0 then
     gpu.setForeground(0x8FA3B7)
     gpu.set(3, headerY + 3, "Список пуст — добавь предметы на сайте, и они появятся здесь.")
+    if lastError ~= nil then
+      gpu.setForeground(0xE08A8A)
+      gpu.set(3, headerY + 5, "Ошибка загрузки: " .. tostring(lastError))
+    end
   elseif #items > visibleRows then
     gpu.setForeground(0x8FA3B7)
     gpu.set(3, tableY + tableHeight - 1, string.format("Показано %d из %d предметов", visibleRows, #items))
@@ -241,7 +299,7 @@ local function run()
   while true do
     refreshData()
     drawDashboard()
-    os.sleep(REFRESH_SECONDS)
+    event.pull(REFRESH_SECONDS)
   end
 end
 
